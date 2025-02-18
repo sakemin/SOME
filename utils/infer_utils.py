@@ -82,18 +82,29 @@ def build_midi_file(offsets: List[float], segments: List[Dict[str, np.ndarray]],
     midi_track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(tempo), time=0))
     last_time = 0
     offsets = [round(o * tempo * 8) for o in offsets]
+
     for i, (offset, segment) in enumerate(zip(offsets, segments)):
         note_midi = np.round(segment['note_midi']).astype(np.int64).tolist()
         note_tick = np.diff(np.round(np.cumsum(segment['note_dur']) * tempo * 8).astype(np.int64), prepend=0).tolist()
         note_rest = segment['note_rest'].tolist()
+
+        # Get velocity from volume data
+        if 'note_volume' in segment:
+            # Normalize volume data to MIDI velocity range (1-127)
+            note_velocity = np.clip(np.round(segment['note_volume'] * 127), 1, 127).astype(np.int64).tolist()
+        else:
+            # Default velocity value (mezzo-forte)
+            note_velocity = [64] * len(note_midi)
+
         start = offset
         for j in range(len(note_midi)):
             end = start + note_tick[j]
             if i < len(offsets) - 1 and end > offsets[i + 1]:
                 end = offsets[i + 1]
             if start < end and not note_rest[j]:
-                midi_track.append(mido.Message('note_on', note=note_midi[j], time=start - last_time))
-                midi_track.append(mido.Message('note_off', note=note_midi[j], time=end - start))
+                velocity = adjust_velocity_to_center(note_velocity[j], center=64, strength=0.35)
+                midi_track.append(mido.Message('note_on', note=note_midi[j], velocity=velocity, time=start - last_time))
+                midi_track.append(mido.Message('note_off', note=note_midi[j], velocity=0, time=end - start))
                 last_time = end
             start = end
     midi_file.tracks.append(midi_track)
@@ -111,3 +122,20 @@ def build_midi_file(offsets: List[float], segments: List[Dict[str, np.ndarray]],
 #     ])
 #     masks = frame2item > 0
 #     decode_note_sequence(frame2item, values, masks)
+
+def adjust_velocity_to_center(velocity: int, center: int = 64, strength: float = 0.5) -> int:
+    """
+    Pull MIDI velocity values toward a center value.
+    
+    Args:
+        velocity: Original velocity (1-127)
+        center: Center value to pull toward (default: 64)
+        strength: How strongly to pull toward center (0-1)
+    
+    Returns:
+        Adjusted velocity (1-127)
+    """
+    # Linear interpolation toward center
+    adjusted = velocity * (1 - strength) + center * strength
+    
+    return int(np.clip(round(adjusted), 1, 127))

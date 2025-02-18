@@ -43,11 +43,15 @@ class BaseInference:
     def postprocess(self, results: Dict[str, torch.Tensor]) -> List[Dict[str, np.ndarray]]:
         raise NotImplementedError()
 
-    def infer(self, waveforms: List[np.ndarray]) -> List[Dict[str, np.ndarray]]:
+    def infer(self, waveforms: List[np.ndarray], waveform: np.ndarray = None) -> List[Dict[str, np.ndarray]]:
+        '''
+        waveforms: List[np.ndarray]
+        waveform: np.ndarray (optional) if provided, volume will be calculated for velocity
+        '''
         results = []
         for w in tqdm.tqdm(waveforms):
             model_in = self.preprocess(w)
             model_out = self.forward_model(model_in)
-            res = self.postprocess(model_out)
+            res = self.postprocess(model_out, waveform)
             results.append(res)
         return results
