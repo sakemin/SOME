@@ -10,6 +10,7 @@ from utils.config_utils import print_config
 from utils.infer_utils import build_midi_file
 from utils.slicer2 import Slicer
 import pitch_correction_utils
+from keyfinder import Tonal_Fragment
 from functools import partial
 
 @click.command(help='Run inference with a trained model')
@@ -20,7 +21,8 @@ from functools import partial
 @click.option('--velocity', required=False, is_flag=True, type=bool, default=False, metavar='VELOCITY', help='Enable velocity calculation')
 @click.option('--autotune', required=False, is_flag=True, type=bool, default=False, metavar='AUTOTUNE', help='Enable autotune')
 @click.option('--autotune-scale', required=False, type=str, default=None, metavar='AUTOTUNE_SCALE', help='Specify autotune scale; Must be in the form TONIC:key. Tonic must be upper case (`CDEFGAB`), key must be lower-case (`maj`, `min`, `ionian`, `dorian`, `phrygian`, `lydian`, `mixolydian`, `aeolian`, `locrian`).')
-def infer(model, wav, midi, tempo, velocity, autotune, autotune_scale):
+@click.option('--scale-detection', required=False, is_flag=True, type=bool, default=False, metavar='SCALE_DETECTION', help='Enable auto scale detection')
+def infer(model, wav, midi, tempo, velocity, autotune, autotune_scale, scale_detection):
     model_path = pathlib.Path(model)
     with open(model_path.with_name('config.yaml'), 'r', encoding='utf8') as f:
         config = yaml.safe_load(f)
@@ -37,7 +39,15 @@ def infer(model, wav, midi, tempo, velocity, autotune, autotune_scale):
     wav_path = pathlib.Path(wav)
     waveform, sr = librosa.load(wav_path, sr=config['audio_sample_rate'], mono=True)
     if autotune:
-        if autotune_scale is None:
+        if scale_detection:
+            wav_trimmed = detect_sound_start(waveform, sr)
+            wav_harmonic, wav_percussive = librosa.effects.hpss(wav_trimmed)
+            duration = wav_trimmed.shape[0] / sr
+            tonal_fragment = Tonal_Fragment(wav_harmonic, sr, tstart=0, tend=duration)
+            key = tonal_fragment.get_key()
+            print(f'Detected key: {key}')
+            correction_function = partial(pitch_correction_utils.aclosest_pitch_from_scale, scale=key)
+        elif autotune_scale is None:
             correction_function = pitch_correction_utils.closest_pitch
         else:
             correction_function = partial(pitch_correction_utils.aclosest_pitch_from_scale, scale=autotune_scale)
@@ -57,6 +67,32 @@ def infer(model, wav, midi, tempo, velocity, autotune, autotune_scale):
     midi_path = pathlib.Path(midi) if midi is not None else wav_path.with_suffix('.mid')
     midi_file.save(midi_path)
     print(f'MIDI file saved at: \'{midi_path}\'')
+
+
+# Detect the start of actual sound by finding where amplitude exceeds a threshold
+def detect_sound_start(y, sr, threshold=0.01):
+  # Calculate amplitude envelope
+  frame_length = int(sr * 0.025)  # 25ms frames
+  hop_length = int(sr * 0.010)    # 10ms hop
+  
+  # Get RMS energy for each frame
+  rms = librosa.feature.rms(y=y, frame_length=frame_length, hop_length=hop_length)[0]
+  
+  # Find first frame that exceeds threshold
+  start_frame = 0
+  for i, energy in enumerate(rms):
+    if energy > threshold:
+      start_frame = i
+      break
+      
+  # Convert frame index to sample index
+  start_sample = start_frame * hop_length
+  
+  # Trim audio to start at detected point
+  y_trimmed = y[start_sample:]
+  
+  return y_trimmed
+
 
 
 if __name__ == '__main__':
