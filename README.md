@@ -33,6 +33,7 @@ python infer.py --model [CHECKPOINT_PATH] --wav [WAV_FILE]
   - Available keys:
     - Major/Minor: `maj`, `min`
     - Modes: `ionian`, `dorian`, `phrygian`, `lydian`, `mixolydian`, `aeolian`, `locrian`
+- `--scale-detection`: Enable auto scale detection
 
 ### Examples
 Basic usage:
