@@ -86,7 +86,7 @@ class MIDIExtractionInference(BaseInference):
         probs *= masks[..., None]
         bounds *= masks
         
-        # 바운드에서 노트 정보 추출
+        # Note information extraction from bounds
         unit2note_pred = decode_bounds_to_alignment(bounds) * masks
         midi_pred, rest_pred = decode_gaussian_blurred_probs(
             probs, vmin=self.midi_min, vmax=self.midi_max,
