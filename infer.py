@@ -10,6 +10,7 @@ from utils.config_utils import print_config
 from utils.infer_utils import build_midi_file
 from utils.slicer2 import Slicer
 import pitch_correction_utils
+from compressor import vocal_compressor
 from keyfinder import Tonal_Fragment
 from functools import partial
 
@@ -22,7 +23,8 @@ from functools import partial
 @click.option('--autotune', required=False, is_flag=True, type=bool, default=False, metavar='AUTOTUNE', help='Enable autotune')
 @click.option('--autotune-scale', required=False, type=str, default=None, metavar='AUTOTUNE_SCALE', help='Specify autotune scale; Must be in the form TONIC:key. Tonic must be upper case (`CDEFGAB`), key must be lower-case (`maj`, `min`, `ionian`, `dorian`, `phrygian`, `lydian`, `mixolydian`, `aeolian`, `locrian`).')
 @click.option('--scale-detection', required=False, is_flag=True, type=bool, default=False, metavar='SCALE_DETECTION', help='Enable auto scale detection')
-def infer(model, wav, midi, tempo, velocity, autotune, autotune_scale, scale_detection):
+@click.option('--compress', required=False, is_flag=True, type=bool, default=False, metavar='COMPRESS', help='Enable compressor applied to the input wav')
+def infer(model, wav, midi, tempo, velocity, autotune, autotune_scale, scale_detection, compress):
     model_path = pathlib.Path(model)
     with open(model_path.with_name('config.yaml'), 'r', encoding='utf8') as f:
         config = yaml.safe_load(f)
@@ -38,6 +40,18 @@ def infer(model, wav, midi, tempo, velocity, autotune, autotune_scale, scale_det
 
     wav_path = pathlib.Path(wav)
     waveform, sr = librosa.load(wav_path, sr=config['audio_sample_rate'], mono=True)
+
+    if compress:
+        waveform = vocal_compressor(
+                                    y=waveform,
+                                    sr=sr,
+                                    threshold=-28.0,  
+                                    ratio=2.0,       
+                                    attack=0.015,    
+                                    release=0.15,     
+                                    makeup_gain=4.0  
+                                )
+
     if autotune:
         if scale_detection:
             wav_trimmed = detect_sound_start(waveform, sr)
