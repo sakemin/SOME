@@ -34,6 +34,7 @@ python infer.py --model [CHECKPOINT_PATH] --wav [WAV_FILE]
     - Major/Minor: `maj`, `min`
     - Modes: `ionian`, `dorian`, `phrygian`, `lydian`, `mixolydian`, `aeolian`, `locrian`
 - `--scale-detection`: Enable auto scale detection
+- `--compress`: Enable compressor applied to the input wav
 
 ### Examples
 Basic usage:
@@ -51,6 +52,11 @@ With autotuning to C major:
 python infer.py --model pretrained/model.ckpt --wav input.wav --autotune --autotune-scale C:maj
 ```
 
+With Autotune and Scale Detection:
+```bash
+python infer.py --model pretrained/model.ckpt --wav input.wav --autotune --scale-detection
+```
+
 ## Overview
 
 SOME is a MIDI extractor that can convert singing voice to MIDI sequence, with the following advantages:
@@ -64,6 +70,11 @@ SOME is a MIDI extractor that can convert singing voice to MIDI sequence, with t
 > 中文教程 / Chinese Tutorials: [Text](https://openvpi-docs.feishu.cn/wiki/RaHSwdMQvisdcKkRFpqclhM7ndc), [Video](https://www.bilibili.com/video/BV1my4y1N7VR)
 
 SOME requires Python 3.8 or later. We strongly recommend you create a virtual environment via Conda or venv before installing dependencies.
+
+pip < 24.1 is required for some dependencies. Please set pip to 24.0 before installing dependencies.
+```bash
+python3 -m pip install --upgrade pip==24.0
+```
 
 1. Install PyTorch 2.1 or later following the [official instructions](https://pytorch.org/get-started/locally/) according to your OS and hardware.
 
