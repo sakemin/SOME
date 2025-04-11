@@ -1,5 +1,8 @@
 FROM python:3.8-slim
 
+# Build argument to specify whether to install PyTorch with CUDA support
+ARG WITH_CUDA=0
+
 WORKDIR /app
 
 # Install system dependencies
@@ -14,7 +17,11 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip==24.0 && \
-    pip install torch==2.1.0 --index-url https://download.pytorch.org/whl/cpu && \
+    if [ "$WITH_CUDA" = "1" ]; then \
+        pip install torch==2.1.0 --index-url https://download.pytorch.org/whl/cu118; \
+    else \
+        pip install torch==2.1.0 --index-url https://download.pytorch.org/whl/cpu; \
+    fi && \
     pip install -r requirements.txt
 
 # Copy application files
@@ -32,7 +39,11 @@ RUN mkdir -p pretrained && \
     unzip 0119_continuous128_5spk.zip && \
     rm 0119_continuous128_5spk.zip && \
     # Download RMVPE model
-    wget -q https://github.com/yxlllc/RMVPE/releases/download/v1.0.5/rmvpe.pt
+    wget -q https://github.com/yxlllc/RMVPE/releases/download/230917/rmvpe.zip && \
+    unzip rmvpe.zip && \
+    mkdir -p rmvpe && \
+    mv model.pt rmvpe/model.pt && \
+    rm rmvpe.zip
 
 # Add volume mount points for input and output files
 VOLUME ["/app/input", "/app/output"]
